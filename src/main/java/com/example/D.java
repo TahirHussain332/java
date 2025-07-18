@@ -3,6 +3,6 @@ package com.example;
 public class D {
 
     public static void main(String[] args) {
-        System.out.println(";l;l;l;l;");
+        System.out.println(";l;l;l;s");
     }
 }
