@@ -1,45 +1,42 @@
-name: Maven CI Pipeline
+name: CI-CD Deploy to EC2
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK (for build)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
-      - name: Cache Maven Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Build with Maven
+      - name: Build JAR
         run: mvn -B clean package
 
-      - name: Run Tests
-        run: mvn -B test
-
-      - name: List built files
-        run: ls -l target
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
+      - name: SCP JAR to EC2
+        uses: appleboy/scp-action@v0.1.10
         with:
-          name: springboot-jar
-          path: target/*.jar
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          source: "target/*.jar"
+          target: "~/app"
+
+      - name: Run JAR on EC2
+        uses: appleboy/ssh-action@v1.0.1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            pkill -f "java -jar" || true
+            cd ~/app
+            nohup java -jar *.jar > app.log 2>&1 &
